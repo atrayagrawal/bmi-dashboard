@@ -688,11 +688,11 @@ function renderFinancial(fin){
 
   const hdrs = ['Metric',...MONTHS];
   const dataRows = [
-    ['Revenue',...fin.rev.map(fmt),fmt(fin.totalRev)],
-    ['TVC',...fin.tvc.map(fmt),''],
-    ['Gross Profit',...fin.gp.map(v=>`<span style="color:${v>=0?'var(--green)':'var(--red)'}">₹${v.toLocaleString('en-IN')}</span>`),''],
-    ['Fixed Cost',...fin.fc.map(fmt),''],
-    ['Net Profit',...fin.np.map(v=>`<span style="color:${v>=0?'var(--green)':'var(--red)'}">₹${v.toLocaleString('en-IN')}</span>`),`<span style="color:${fin.totalNP>=0?'var(--green)':'var(--red)'}">₹${fin.totalNP.toLocaleString('en-IN')}</span>`],
+    ['Revenue',...fin.rev.map(fmt)],
+    ['TVC',...fin.tvc.map(fmt)],
+    ['Gross Profit',...fin.gp.map(v=>`<span style="color:${v>=0?'var(--green)':'var(--red)'}">₹${v.toLocaleString('en-IN')}</span>`)],
+    ['Fixed Cost',...fin.fc.map(fmt)],
+    ['Net Profit',...fin.np.map(v=>`<span style="color:${v>=0?'var(--green)':'var(--red)'}">₹${v.toLocaleString('en-IN')}</span>`)],
   ];
   const ths=hdrs.map(h=>`<th>${h}</th>`).join('');
   const trs=dataRows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('');
