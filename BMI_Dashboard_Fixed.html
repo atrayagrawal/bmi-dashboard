@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BMI Business Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#080c14; --panel:#0e1623; --card:#131e2e; --border:#1a2d45; --border2:#243d58;
+  --accent:#00c8ff; --accent2:#6c3fff; --green:#00e096; --yellow:#ffc14d; --red:#ff4d6d;
+  --text:#dde6f0; --muted:#4a6580; --muted2:#1e3248;
+  --mono:'DM Mono',monospace; --sans:'DM Sans',sans-serif; --display:'Syne',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100vh;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--panel)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+/* LOADING */
+#loading{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:20px;transition:opacity 0.5s}
+#loading.hidden{opacity:0;pointer-events:none}
+.spinner{width:48px;height:48px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-text{font-family:var(--display);font-size:18px;font-weight:700;color:var(--text)}
+.load-sub{font-size:13px;color:var(--muted);font-family:var(--mono)}
+.load-progress{width:240px;height:3px;background:var(--border2);border-radius:2px;overflow:hidden}
+.load-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;animation:loadbar 2.5s ease forwards}
+@keyframes loadbar{from{width:0%}to{width:100%}}
+
+/* ERROR BANNER */
+#error-banner{display:none;background:#ff4d6d18;border:1px solid #ff4d6d44;border-radius:10px;padding:14px 20px;margin:20px 32px;font-size:13px;color:#ffaab8;line-height:1.6}
+#error-banner strong{color:var(--red)}
+
+/* HEADER */
+#header{position:sticky;top:0;z-index:100;background:var(--panel);border-bottom:1px solid var(--border);padding:0 32px;height:62px;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(12px)}
+.hdr-left{display:flex;align-items:center;gap:14px}
+.logo{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;font-size:16px;color:#fff;flex-shrink:0}
+.hdr-title{font-family:var(--display);font-size:16px;font-weight:800}
+.hdr-sub{font-size:11px;color:var(--muted);font-family:var(--mono)}
+.hdr-right{display:flex;align-items:center;gap:10px}
+.status-pill{display:flex;align-items:center;gap:7px;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600}
+.status-live{background:#00e09611;border:1px solid #00e09633;color:var(--green)}
+.status-loading{background:#ffc14d11;border:1px solid #ffc14d33;color:var(--yellow)}
+.status-error{background:#ff4d6d11;border:1px solid #ff4d6d33;color:var(--red)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+.hdr-btn{padding:6px 14px;border-radius:8px;border:1px solid var(--border2);background:transparent;color:var(--muted);font-size:12px;cursor:pointer;font-family:var(--sans);transition:all 0.2s}
+.hdr-btn:hover{border-color:var(--accent);color:var(--accent)}
+.sync-time{font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+/* TABS */
+#tabs{background:var(--panel);border-bottom:1px solid var(--border);padding:0 32px;display:flex;gap:2px;overflow-x:auto}
+.tab{padding:14px 18px;border:none;background:transparent;color:var(--muted);font-family:var(--sans);font-size:13px;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap;transition:all 0.2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* MAIN */
+#main{padding:28px 32px;max-width:1600px;margin:0 auto}
+.pane{display:none;animation:fadeIn 0.3s ease}
+.pane.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+
+/* SECTION HEADER */
+.sec-hdr{display:flex;align-items:center;gap:10px;margin-bottom:22px}
+.sec-hdr h2{font-family:var(--display);font-size:18px;font-weight:700}
+.sec-hdr .line{flex:1;height:1px;background:var(--border)}
+.sec-hdr .stamp{font-size:11px;color:var(--muted);font-family:var(--mono)}
+
+/* GRIDS */
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}
+.g21{display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:20px}
+.g12{display:grid;grid-template-columns:1fr 2fr;gap:20px;margin-bottom:20px}
+@media(max-width:900px){.g4,.g3{grid-template-columns:1fr 1fr}.g2,.g21,.g12{grid-template-columns:1fr}}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;position:relative;overflow:hidden}
+.card-accent{position:absolute;top:0;left:0;width:3px;height:100%;border-radius:12px 0 0 12px}
+
+/* KPI CARD */
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px 20px;position:relative;overflow:hidden;transition:transform 0.2s,border-color 0.2s}
+.kpi:hover{transform:translateY(-2px);border-color:var(--border2)}
+.kpi-accent{position:absolute;top:0;left:0;width:3px;height:100%;border-radius:12px 0 0 12px}
+.kpi-label{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.kpi-value{font-family:var(--display);font-size:24px;font-weight:700;line-height:1;margin-bottom:4px}
+.kpi-sub{font-size:12px;color:var(--muted)}
+.kpi-change{margin-top:8px;font-size:12px;font-weight:600;font-family:var(--mono)}
+.kpi-icon{position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:28px;opacity:0.25}
+.up{color:var(--green)} .down{color:var(--red)} .neutral{color:var(--yellow)}
+
+/* TABLE */
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr{border-bottom:1px solid var(--border2)}
+th{color:var(--muted);text-align:left;padding:8px 12px;font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;white-space:nowrap}
+td{padding:9px 12px;border-bottom:1px solid #1a2d4533;white-space:nowrap}
+tbody tr:hover{background:#1a2d4522}
+.tag{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600}
+.tag-green{background:#00e09618;color:var(--green);border:1px solid #00e09633}
+.tag-yellow{background:#ffc14d18;color:var(--yellow);border:1px solid #ffc14d33}
+.tag-red{background:#ff4d6d18;color:var(--red);border:1px solid #ff4d6d33}
+.tag-blue{background:#00c8ff18;color:var(--accent);border:1px solid #00c8ff33}
+
+/* BAR */
+.bar-wrap{background:var(--muted2);border-radius:4px;height:7px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 0.6s ease}
+
+/* CHART */
+.chart-wrap{display:flex;align-items:flex-end;gap:6px;height:120px;padding-top:10px}
+.bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.bar-col .b{width:100%;border-radius:3px 3px 0 0;transition:height 0.5s ease;min-height:2px}
+.bar-col .lbl{font-size:10px;color:var(--muted);font-family:var(--mono)}
+.chart-legend{display:flex;gap:16px;margin-top:12px;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+.legend-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+
+/* FUNNEL */
+.funnel-stage{margin-bottom:10px}
+.funnel-label{display:flex;justify-content:space-between;margin-bottom:4px;font-size:12px}
+.funnel-bar{height:24px;background:var(--muted2);border-radius:4px;overflow:hidden;display:flex;align-items:center}
+.funnel-fill{height:100%;display:flex;align-items:center;padding:0 10px;border-radius:4px;transition:width 0.7s ease;font-size:11px;font-weight:700;color:#000;min-width:30px}
+
+/* EMPTY STATE */
+.empty{text-align:center;padding:40px 20px;color:var(--muted)}
+.empty-icon{font-size:36px;margin-bottom:12px;opacity:0.4}
+.empty p{font-size:13px;line-height:1.6}
+
+/* FOOTER */
+#footer{text-align:center;padding:20px 32px;color:var(--muted);font-size:11px;border-top:1px solid var(--border);font-family:var(--mono);margin-top:20px}
+</style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div id="loading">
+  <div class="spinner"></div>
+  <div class="load-text">BMI Dashboard</div>
+  <div class="load-sub">Connecting to Google Sheets...</div>
+  <div class="load-progress"><div class="load-bar"></div></div>
+</div>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="hdr-left">
+    <div class="logo">B</div>
+    <div>
+      <div class="hdr-title">BMI Business Dashboard</div>
+      <div class="hdr-sub">Business Management Intelligence · Live from Google Sheets</div>
+    </div>
+  </div>
+  <div class="hdr-right">
+    <span class="sync-time" id="sync-time">—</span>
+    <button class="hdr-btn" onclick="loadAllData(true)">⟳ Refresh</button>
+    <div class="status-pill status-loading" id="status-pill">
+      <div class="dot"></div>
+      <span id="status-text">Loading...</span>
+    </div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div id="tabs">
+  <button class="tab active" onclick="switchTab('overview',this)">🏠 Overview</button>
+  <button class="tab" onclick="switchTab('financial',this)">💰 Financial</button>
+  <button class="tab" onclick="switchTab('sales',this)">📈 Sales</button>
+  <button class="tab" onclick="switchTab('budgeting',this)">📋 Budgeting</button>
+  <button class="tab" onclick="switchTab('receivables',this)">🏦 Receivables</button>
+  <button class="tab" onclick="switchTab('operations',this)">⚙️ Operations</button>
+  <button class="tab" onclick="switchTab('growth',this)">🚀 Growth</button>
+  <button class="tab" onclick="switchTab('tasks',this)">✅ Tasks</button>
+</div>
+
+<div id="error-banner"></div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- OVERVIEW -->
+  <div class="pane active" id="pane-overview">
+    <div class="sec-hdr"><span>🏠</span><h2>Executive Overview</h2><div class="line"></div><span class="stamp" id="ov-stamp">—</span></div>
+    <div class="g4" id="kpi-row-1">
+      <div class="kpi"><div class="kpi-accent" style="background:var(--accent)"></div><div class="kpi-icon">💹</div><div class="kpi-label">Annual Revenue</div><div class="kpi-value" id="ov-revenue">—</div><div class="kpi-sub">Full year total</div></div>
+      <div class="kpi"><div class="kpi-accent" style="background:var(--green)"></div><div class="kpi-icon">📊</div><div class="kpi-label">Gross Profit</div><div class="kpi-value" id="ov-gp">—</div><div class="kpi-sub" id="ov-gp-pct">—</div></div>
+      <div class="kpi"><div class="kpi-accent" style="background:var(--yellow)"></div><div class="kpi-icon">💰</div><div class="kpi-label">Net Profit</div><div class="kpi-value" id="ov-np">—</div><div class="kpi-sub" id="ov-np-pct">—</div></div>
+      <div class="kpi"><div class="kpi-accent" style="background:var(--accent2)"></div><div class="kpi-icon">🎯</div><div class="kpi-label">Sales Target</div><div class="kpi-value" id="ov-target">—</div><div class="kpi-sub">Team total</div></div>
+    </div>
+    <div class="g4">
+      <div class="kpi"><div class="kpi-accent" style="background:var(--red)"></div><div class="kpi-icon">🏦</div><div class="kpi-label">Total Receivables</div><div class="kpi-value" id="ov-recv">—</div><div class="kpi-sub">All aging buckets</div></div>
+      <div class="kpi"><div class="kpi-accent" style="background:var(--yellow)"></div><div class="kpi-icon">📋</div><div class="kpi-label">Fixed Cost/yr</div><div class="kpi-value" id="ov-fc">—</div><div class="kpi-sub">Annual total</div></div>
+      <div class="kpi"><div class="kpi-accent" style="background:var(--green)"></div><div class="kpi-icon">✅</div><div class="kpi-label">On-Time Delivery</div><div class="kpi-value" id="ov-otd">—</div><div class="kpi-sub">This period</div></div>
+      <div class="kpi"><div class="kpi-accent" style="background:var(--accent)"></div><div class="kpi-icon">📦</div><div class="kpi-label">Break-Even</div><div class="kpi-value" id="ov-bep">—</div><div class="kpi-sub">Monthly avg</div></div>
+    </div>
+    <div class="g21">
+      <div class="card">
+        <div class="card-accent" style="background:var(--accent)"></div>
+        <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:16px">MONTHLY REVENUE vs GROSS PROFIT vs NET PROFIT</div>
+        <div class="chart-wrap" id="rev-chart"></div>
+        <div class="chart-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Revenue</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Gross Profit</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>Net Profit</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-accent" style="background:var(--accent2)"></div>
+        <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:16px">5-YEAR VISION</div>
+        <div id="vision-panel"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FINANCIAL -->
+  <div class="pane" id="pane-financial">
+    <div class="sec-hdr"><span>💰</span><h2>Financial Summary</h2><div class="line"></div><span class="stamp">Live from: Financial Summary sheet</span></div>
+    <div class="g4" id="fin-kpis"></div>
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-accent" style="background:var(--accent)"></div>
+      <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:16px">MONTHLY P&L BREAKDOWN</div>
+      <div class="tbl-wrap"><table id="fin-table"><thead></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- SALES -->
+  <div class="pane" id="pane-sales">
+    <div class="sec-hdr"><span>📈</span><h2>Sales Performance</h2><div class="line"></div><span class="stamp">Live from: Sales Team + Sales Funnel + MeCA sheets</span></div>
+    <div class="g4" id="sales-kpis"></div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-accent" style="background:var(--green)"></div>
+        <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:16px">SALES TEAM PERFORMANCE</div>
+        <div class="tbl-wrap"><table id="sales-table"><thead></thead><tbody></tbody></table></div>
+      </div>
+      <div class="card">
+        <div class="card-accent" style="background:var(--accent2)"></div>
+        <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:16px">SALES FUNNEL</div>
+        <div id="funnel-chart"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background:var(--accent)"></div>
+      <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:16px">MeCA — MEETINGS × CONVERSION × AVERAGE SALE</div>
+      <div class="tbl-wrap"><table id="meca-table"><thead></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- BUDGETING -->
+  <div class="pane" id="pane-budgeting">
+    <div class="sec-hdr"><span>📋</span><h2>Fixed Cost Budgeting</h2><div class="line"></div><span class="stamp">Live from: Budgeting sheet</span></div>
+    <div class="g4" id="budget-kpis"></div>
+    <div class="card">
+      <div class="card-accent" style="background:var(--accent2)"></div>
+      <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:16px">BENCHMARK vs ACTUAL — ALL CATEGORIES</div>
+      <div id="budget-bars"></div>
+    </div>
+  </div>
+
+  <!-- RECEIVABLES -->
+  <div class="pane" id="pane-receivables">
+    <div class="sec-hdr"><span>🏦</span><h2>Receivables Aging</h2><div class="line"></div><span class="stamp">Live from: Receivables sheet</span></div>
+    <div class="g4" id="recv-kpis"></div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-accent" style="background:var(--accent)"></div>
+        <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:16px">AGING BREAKDOWN</div>
+        <div id="recv-bars"></div>
+      </div>
+      <div class="card">
+        <div class="card-accent" style="background:var(--green)"></div>
+        <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:16px">CRM TRACKER</div>
+        <div class="tbl-wrap"><table id="crm-table"><thead></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPERATIONS -->
+  <div class="pane" id="pane-operations">
+    <div class="sec-hdr"><span>⚙️</span><h2>Operations</h2><div class="line"></div><span class="stamp">Live from: On-Time Delivery + Inventory sheets</span></div>
+    <div class="g4" id="ops-kpis"></div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-accent" style="background:var(--green)"></div>
+        <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:16px">ON-TIME DELIVERY</div>
+        <div class="tbl-wrap"><table id="otd-table"><thead></thead><tbody></tbody></table></div>
+      </div>
+      <div class="card">
+        <div class="card-accent" style="background:var(--yellow)"></div>
+        <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:16px">INVENTORY STATUS</div>
+        <div class="tbl-wrap"><table id="inv-table"><thead></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GROWTH -->
+  <div class="pane" id="pane-growth">
+    <div class="sec-hdr"><span>🚀</span><h2>Growth & Strategy</h2><div class="line"></div><span class="stamp">Live from: Gap Analysis + Compounding + Critical Params sheets</span></div>
+    <div class="g3" id="growth-kpis"></div>
+    <div class="g2">
+      <div class="card">
+        <div class="card-accent" style="background:var(--accent)"></div>
+        <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:16px">GAP ANALYSIS — PATH TO DOUBLE PROFIT</div>
+        <div id="gap-panel"></div>
+      </div>
+      <div class="card">
+        <div class="card-accent" style="background:var(--green)"></div>
+        <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:16px">COMPOUNDING PROJECTIONS</div>
+        <div class="tbl-wrap"><table id="comp-table"><thead></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background:var(--yellow)"></div>
+      <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:16px">CRITICAL BUSINESS PARAMETERS</div>
+      <div class="tbl-wrap"><table id="crit-table"><thead></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+
+  <!-- TASKS -->
+  <div class="pane" id="pane-tasks">
+    <div class="sec-hdr"><span>✅</span><h2>Tasks & Delegation</h2><div class="line"></div><span class="stamp">Live from: To-Do Lists + Delegation sheets</span></div>
+    <div class="g3" id="tasks-cols"></div>
+    <div class="card">
+      <div class="card-accent" style="background:var(--accent2)"></div>
+      <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:16px">DELEGATION TRACKER</div>
+      <div class="tbl-wrap"><table id="deleg-table"><thead></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+
+</div>
+
+<div id="footer">BMI Business Dashboard · Data source: Google Sheets · Read-only view · Refresh to sync latest data</div>
+
+<script>
+// ═══════════════════════════════════════════════
+// CONFIG — replace YOUR_API_KEY_HERE with your key
+// ═══════════════════════════════════════════════
+const API_KEY  = 'YOUR_API_KEY_HERE';
+const SHEET_ID = '1OX8mqIY5XNUaYiZc0BTHC_2nC_Cciz20CP91aoRS7SU';
+const BASE     = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values`;
+
+// ── helpers ──────────────────────────────────
+const fmt = (n) => isNaN(n)||n===''?'—':'₹'+Number(n).toLocaleString('en-IN');
+const fmtN = (n) => isNaN(n)||n===''?'—':Number(n).toLocaleString('en-IN');
+const fmtP = (n) => isNaN(n)||n===''?'—':(Number(n)*100).toFixed(1)+'%';
+const fmtPd = (n) => isNaN(n)||n===''?'—':Number(n).toFixed(1)+'%';
+const num   = (v) => { if(v===undefined||v===null||v==='')return 0; const n=parseFloat(String(v).replace(/[₹,]/g,'')); return isNaN(n)?0:n; };
+const el    = (id) => document.getElementById(id);
+
+function setStatus(state, text){
+  const p=el('status-pill'), t=el('status-text');
+  p.className='status-pill status-'+state;
+  t.textContent=text;
+}
+
+function showError(msg){
+  const b=el('error-banner');
+  b.style.display='block';
+  b.innerHTML=`<strong>⚠ Error:</strong> ${msg}
+    <br><br>
+    <strong>Quick fixes to try:</strong><br>
+    1. Make sure Google Sheets API is enabled in Google Cloud Console<br>
+    2. Make sure your API key has no HTTP referrer restrictions blocking GitHub Pages<br>
+    3. Make sure the Sheet is shared as "Anyone with the link → Viewer"<br>
+    4. Try opening the browser console (F12 → Console tab) for the full error<br>
+    <br><small style="font-family:monospace;color:#ff9aaa">Raw error: ${msg}</small>`;
+  setStatus('error','Error — see banner above');
+  el('loading').classList.add('hidden');
+}
+
+// ── Batch fetch: one HTTP request for ALL ranges ─────────────
+const CACHE_KEY = 'bmi_cache';
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function saveCache(data){
+  try{ sessionStorage.setItem(CACHE_KEY, JSON.stringify({ts: Date.now(), data})); }catch(e){}
+}
+function loadCache(){
+  try{
+    const raw = sessionStorage.getItem(CACHE_KEY);
+    if(!raw) return null;
+    const {ts, data} = JSON.parse(raw);
+    if(Date.now() - ts < CACHE_TTL) return data;
+  }catch(e){}
+  return null;
+}
+
+const ALL_RANGES = [
+  'Financial Summary!A2:O14',
+  'Sales Team!A2:L8',
+  'Sales Funnel!A2:E8',
+  'MeCA!A2:H10',
+  'Budgeting!A2:P16',
+  'Receivables!A2:E8',
+  'CRM Tracker!A2:J22',
+  'On-Time Delivery!A2:H22',
+  'On-Time Delivery!A25:B29',
+  'Inventory!A2:L22',
+  'Gap Analysis!A2:C14',
+  'Compounding!A10:K23',
+  'Critical Params!A2:F23',
+  'Vision 5yr!A2:F8',
+  'To-Do Lists!A2:I32',
+  'Delegation!A2:L22',
+];
+
+async function fetchAllSheets(){
+  // Build batch URL — single API call for all ranges
+  const params = ALL_RANGES.map(r => `ranges=${encodeURIComponent(r)}`).join('&');
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values:batchGet?${params}&key=${API_KEY}`;
+  const r = await fetch(url);
+  if(!r.ok){ const e=await r.json(); throw new Error(e.error?.message||'Fetch failed'); }
+  const d = await r.json();
+  // Return as a map: range name → values[][]
+  // Use index-based mapping (not vr.range) since Sheets may reformat the key
+  const map = {};
+  (d.valueRanges||[]).forEach((vr, i) => {
+    map[ALL_RANGES[i]] = vr.values || [];
+  });
+  console.log('✅ Batch fetch complete. Keys:', Object.keys(map));
+  console.log('Sample Financial Summary rows:', (map[ALL_RANGES[0]]||[]).slice(0,3));
+  return map;
+}
+
+// Wrapper to get a specific range from the batch result
+function getRange(batchData, range){ return batchData[range] || []; }
+
+// ── tab switching ─────────────────────────────
+function switchTab(id, btn){
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el('pane-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ── render helpers ────────────────────────────
+function kpiCard(label, value, sub, color, icon, change){
+  const chHtml = change!==undefined
+    ? `<div class="kpi-change ${change>=0?'up':'down'}">${change>=0?'▲':'▼'} ${Math.abs(change).toFixed(1)}%</div>`
+    : '';
+  return `<div class="kpi">
+    <div class="kpi-accent" style="background:${color}"></div>
+    <div class="kpi-icon">${icon}</div>
+    <div class="kpi-label">${label}</div>
+    <div class="kpi-value">${value}</div>
+    <div class="kpi-sub">${sub||''}</div>
+    ${chHtml}
+  </div>`;
+}
+
+function barRow(label, actual, benchmark, color){
+  const pct = benchmark>0 ? Math.min(100,(actual/benchmark)*100) : 0;
+  const diff = benchmark>0 ? ((actual-benchmark)/benchmark*100) : 0;
+  const dc   = diff>5?'var(--red)':diff>0?'var(--yellow)':'var(--green)';
+  return `<div style="margin-bottom:14px">
+    <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px">
+      <span style="color:var(--text);font-weight:600">${label}</span>
+      <span style="color:var(--muted)">₹${actual.toLocaleString('en-IN')} / ₹${benchmark.toLocaleString('en-IN')}
+        <span style="color:${dc};margin-left:8px;font-family:var(--mono)">${diff>0?'+':''}${diff.toFixed(1)}%</span>
+      </span>
+    </div>
+    <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
+  </div>`;
+}
+
+function makeTable(headers, rows, emptyMsg='No data in sheet yet'){
+  if(!rows.length) return `<div class="empty"><div class="empty-icon">📋</div><p>${emptyMsg}</p></div>`;
+  const ths = headers.map(h=>`<th>${h}</th>`).join('');
+  const trs = rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('');
+  return `<table><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+}
+
+// ═══════════════════════════════════════════════
+// DATA LOADERS
+// ═══════════════════════════════════════════════
+const MONTHS=['Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar'];
+
+function loadFinancial(batchData){
+  const rows = getRange(batchData, 'Financial Summary!A2:O14');
+  if(!rows.length) return {};
+  const map={};
+  rows.slice(1).forEach(r=>{ if(r[0]) map[r[0]]=r.slice(1); });
+  const rev  = (map['Revenue (₹)']||[]).map(num);
+  const tvc  = (map['Total Variable Cost (₹)']||[]).map(num);
+  const fc   = (map['Fixed Cost (₹)']||[]).map(num);
+  const gp   = rev.map((v,i)=>v-tvc[i]);
+  const np   = gp.map((v,i)=>v-fc[i]);
+  const totalRev = rev.reduce((a,b)=>a+b,0);
+  const totalGP  = gp.reduce((a,b)=>a+b,0);
+  const totalNP  = np.reduce((a,b)=>a+b,0);
+  const totalFC  = fc.reduce((a,b)=>a+b,0);
+  const avgBEP   = fc.map((f,i)=>{ const gpm=rev[i]>0?(gp[i]/rev[i]):0; return gpm>0?f/gpm:0; });
+  const totalBEP = avgBEP.reduce((a,b)=>a+b,0)/12;
+  return {rev,tvc,fc,gp,np,totalRev,totalGP,totalNP,totalFC,totalBEP};
+}
+
+function loadSales(batchData){
+  const rows = getRange(batchData, 'Sales Team!A2:L8');
+  if(!rows.length) return {persons:[],totalTarget:0,totalActual:0};
+  const persons = rows.slice(1).filter(r=>r[0]&&r[0]!=='TOTAL').map(r=>({
+    name:r[0]||'', target:num(r[1]), cr:num(r[2]), avgSale:num(r[3]),
+    meetingsNeeded:num(r[4]), actual:num(r[6]), achievement:num(r[7])
+  }));
+  const totalTarget = persons.reduce((a,p)=>a+p.target,0);
+  const totalActual = persons.reduce((a,p)=>a+p.actual,0);
+  return {persons,totalTarget,totalActual};
+}
+
+function loadFunnel(batchData){
+  const rows = getRange(batchData, 'Sales Funnel!A2:E8');
+  if(!rows.length) return [];
+  return rows.slice(1).filter(r=>r[0]).map(r=>({
+    stage:r[0], plan:num(r[1]), actual:num(r[2]), cr:num(r[3])
+  }));
+}
+
+function loadMeCA(batchData){
+  const rows = getRange(batchData, 'MeCA!A2:H10');
+  if(!rows.length) return {headers:[],rows:[]};
+  return {headers:['Metric',...MONTHS.slice(0,6),'Q1 Avg'], rows:rows.slice(1).filter(r=>r[0])};
+}
+
+function loadBudgeting(batchData){
+  const rows = getRange(batchData, 'Budgeting!A2:P16');
+  if(!rows.length) return [];
+  return rows.slice(1).filter(r=>r[0]&&r[0]!=='TOTAL').map(r=>({
+    item:r[0], benchmark:num(r[1]),
+    actuals:r.slice(2,14).map(num),
+    total:num(r[14]), vsB:num(r[15])
+  }));
+}
+
+function loadReceivables(batchData){
+  const rows = getRange(batchData, 'Receivables!A2:E8');
+  if(!rows.length) return [];
+  return rows.slice(1).filter(r=>r[0]&&r[0]!=='TOTAL').map(r=>({
+    bucket:r[0], accounts:num(r[1]), amount:num(r[2]), pct:num(r[3]), action:r[4]||''
+  }));
+}
+
+function loadCRM(batchData){
+  const rows = getRange(batchData, 'CRM Tracker!A2:J22');
+  if(!rows.length) return [];
+  return rows.slice(1).filter(r=>r[0]).map(r=>({
+    bill:r[0],date:r[1]||'',client:r[2]||'',contact:r[3]||'',
+    value:num(r[5]),promised:r[6]||'',actual:r[7]||'',
+    delayed:r[8]||'',status:r[9]||''
+  }));
+}
+
+function loadOTD(batchData){
+  const rows = getRange(batchData, 'On-Time Delivery!A2:H22');
+  if(!rows.length) return {items:[],summary:{}};
+  const items = rows.slice(1).filter(r=>r[0]).map(r=>({
+    bill:r[0],client:r[1]||'',contact:r[2]||'',
+    promised:r[3]||'',actual:r[4]||'',delayed:r[5]||'',onTime:r[6]||''
+  }));
+  const sumRows = getRange(batchData, 'On-Time Delivery!A25:B29');
+  const summary={};
+  sumRows.forEach(r=>{ if(r[0]) summary[r[0]]=r[1]||''; });
+  return {items,summary};
+}
+
+function loadInventory(batchData){
+  const rows = getRange(batchData, 'Inventory!A2:L22');
+  if(!rows.length) return [];
+  return rows.slice(1).filter(r=>r[1]||r[2]).map(r=>({
+    sno:r[0],code:r[1]||'',desc:r[2]||'',season:r[3]||'',
+    avgDaily:num(r[4]),leadTime:num(r[5]),safety:num(r[6]),
+    maxLevel:r[7]||'',current:num(r[8]),status:r[9]||''
+  }));
+}
+
+function loadGap(batchData){
+  const rows = getRange(batchData, 'Gap Analysis!A2:C14');
+  if(!rows.length) return {current:{},targets:{}};
+  const current={}, targets={};
+  rows.slice(1).forEach(r=>{ if(r[0]){ current[r[0]]=num(r[1]); targets[r[0]]=num(r[2]); } });
+  return {current,targets};
+}
+
+function loadCompounding(batchData){
+  const rows = getRange(batchData, 'Compounding!A10:K23');
+  if(!rows.length) return [];
+  return rows.slice(1).filter(r=>r[0]&&r[0]!=='TOTAL').map(r=>({
+    month:r[0],leads:num(r[1]),cr:r[2]||'',clients:num(r[3]),
+    avgSale:num(r[4]),rev:num(r[6]),gp:num(r[7]),profit:num(r[10])
+  }));
+}
+
+function loadCritical(batchData){
+  const rows = getRange(batchData, 'Critical Params!A2:F23');
+  if(!rows.length) return [];
+  return rows.slice(1).filter(r=>r[1]).map(r=>({
+    num:r[0]||'',param:r[1]||'',past:num(r[2]),next:num(r[3]),
+    change:num(r[4]),health:r[5]||''
+  }));
+}
+
+function loadVision(batchData){
+  const rows = getRange(batchData, 'Vision 5yr!A2:F8');
+  if(!rows.length) return [];
+  return rows.slice(1).filter(r=>r[0]).map(r=>({
+    period:r[0],rev:num(r[1]),profit:num(r[2]),pct:r[3]||'',profitMo:num(r[4]),team:r[5]||''
+  }));
+}
+
+function loadTasks(batchData){
+  const rows = getRange(batchData, 'To-Do Lists!A2:I32');
+  if(!rows.length) return {daily:[],weekly:[],monthly:[]};
+  const daily=[],weekly=[],monthly=[];
+  rows.slice(1).forEach(r=>{
+    if(r[1]) daily.push({task:r[1],done:r[2]||''});
+    if(r[4]) weekly.push({task:r[4],done:r[5]||''});
+    if(r[7]) monthly.push({task:r[7],done:r[8]||''});
+  });
+  return {daily,weekly,monthly};
+}
+
+function loadDelegation(batchData){
+  const rows = getRange(batchData, 'Delegation!A2:L22');
+  if(!rows.length) return [];
+  return rows.slice(1).filter(r=>r[0]||r[1]).map(r=>({
+    dept:r[0]||'',person:r[1]||'',task:r[2]||'',
+    w1due:r[3]||'',w1status:r[4]||'',w1score:r[5]||'',
+    w2due:r[6]||'',w2status:r[7]||'',w2score:r[8]||''
+  }));
+}
+
+// ═══════════════════════════════════════════════
+// RENDER FUNCTIONS
+// ═══════════════════════════════════════════════
+
+function renderOverview(fin, sales, recv, otd){
+  // KPI row 1
+  const gpPct = fin.totalRev>0?(fin.totalGP/fin.totalRev*100):0;
+  const npPct = fin.totalRev>0?(fin.totalNP/fin.totalRev*100):0;
+  el('ov-revenue').textContent = fmt(fin.totalRev);
+  el('ov-gp').textContent      = fmt(fin.totalGP);
+  el('ov-gp-pct').textContent  = `${gpPct.toFixed(1)}% margin`;
+  el('ov-np').textContent      = fmt(fin.totalNP);
+  el('ov-np-pct').textContent  = `${npPct.toFixed(1)}% margin`;
+  el('ov-target').textContent  = fmt(sales.totalTarget);
+  const totalRecv = recv.reduce((a,r)=>a+r.amount,0);
+  el('ov-recv').textContent    = fmt(totalRecv);
+  el('ov-fc').textContent      = fmt(fin.totalFC);
+  const otdPct = otd.summary['On-Time %']||otd.summary['On-Time %']||'—';
+  el('ov-otd').textContent     = typeof otdPct==='string'&&otdPct.includes('%')?otdPct:fmtPd(otdPct);
+  el('ov-bep').textContent     = fmt(fin.totalBEP);
+  el('ov-stamp').textContent   = 'Synced: '+new Date().toLocaleTimeString();
+
+  // Revenue chart
+  const maxV = Math.max(...fin.rev, 1);
+  el('rev-chart').innerHTML = fin.rev.map((v,i)=>{
+    const gp=fin.gp[i], np=fin.np[i];
+    const hRev=Math.max(2,(v/maxV)*100);
+    const hGP=Math.max(0,(gp/maxV)*100);
+    const hNP=np>0?Math.max(0,(np/maxV)*100):0;
+    return `<div class="bar-col">
+      <div style="width:100%;height:100px;display:flex;flex-direction:column;justify-content:flex-end;gap:1px">
+        <div class="b" style="height:${hNP}px;background:var(--yellow)"></div>
+        <div class="b" style="height:${Math.max(0,hGP-hNP)}px;background:var(--green)"></div>
+        <div class="b" style="height:${Math.max(0,hRev-hGP)}px;background:var(--accent)"></div>
+      </div>
+      <div class="lbl">${MONTHS[i]}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderVision(vision){
+  if(!vision.length){ el('vision-panel').innerHTML='<div class="empty"><div class="empty-icon">🔭</div><p>Fill in the Vision 5yr sheet to see targets here.</p></div>'; return; }
+  el('vision-panel').innerHTML = vision.map((v,i)=>`
+    <div style="padding:10px 0;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;align-items:center">
+      <div style="font-size:12px;font-weight:600;color:${i===0?'var(--accent)':'var(--text)'}">${v.period}</div>
+      <div style="text-align:right"><div style="font-size:10px;color:var(--muted)">Revenue</div><div style="font-size:13px;font-weight:700;color:var(--green)">${fmt(v.rev)}</div></div>
+      <div style="text-align:right"><div style="font-size:10px;color:var(--muted)">Profit</div><div style="font-size:13px;font-weight:700;color:var(--yellow)">${fmt(v.profit)}</div></div>
+    </div>`).join('');
+}
+
+function renderFinancial(fin){
+  const gpPct = fin.totalRev>0?(fin.totalGP/fin.totalRev*100):0;
+  const npPct = fin.totalRev>0?(fin.totalNP/fin.totalRev*100):0;
+  el('fin-kpis').innerHTML =
+    kpiCard('Total Revenue',fmt(fin.totalRev),'Annual total','var(--accent)','💹')+
+    kpiCard('Gross Profit',fmt(fin.totalGP),gpPct.toFixed(1)+'% margin','var(--green)','📊')+
+    kpiCard('Net Profit',fmt(fin.totalNP),npPct.toFixed(1)+'% margin','var(--yellow)','💰')+
+    kpiCard('Fixed Cost',fmt(fin.totalFC),'Annual total','var(--accent2)','📋');
+
+  const hdrs = ['Metric',...MONTHS];
+  const dataRows = [
+    ['Revenue',...fin.rev.map(fmt)],
+    ['TVC',...fin.tvc.map(fmt)],
+    ['Gross Profit',...fin.gp.map(v=>`<span style="color:${v>=0?'var(--green)':'var(--red)'}">₹${v.toLocaleString('en-IN')}</span>`)],
+    ['Fixed Cost',...fin.fc.map(fmt)],
+    ['Net Profit',...fin.np.map(v=>`<span style="color:${v>=0?'var(--green)':'var(--red)'}">₹${v.toLocaleString('en-IN')}</span>`)],
+  ];
+  const ths=hdrs.map(h=>`<th>${h}</th>`).join('');
+  const trs=dataRows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('');
+  el('fin-table').outerHTML=`<table id="fin-table"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+}
+
+function renderSales(sales, funnel){
+  const ach = sales.totalTarget>0?((sales.totalActual/sales.totalTarget)*100):0;
+  el('sales-kpis').innerHTML =
+    kpiCard('Total Target',fmt(sales.totalTarget),'All persons','var(--accent)','🎯')+
+    kpiCard('Actual Revenue',fmt(sales.totalActual),'This period','var(--green)','💹')+
+    kpiCard('Achievement',ach.toFixed(1)+'%',ach>=100?'✅ On Target':ach>=80?'⚠ Near Target':'❌ Below',ach>=100?'var(--green)':ach>=80?'var(--yellow)':'var(--red)','📊')+
+    kpiCard('Sales Persons',sales.persons.length+' people','Active team','var(--accent2)','👥');
+
+  // Sales table
+  const sRows = sales.persons.filter(p=>p.name).map(p=>{
+    const a=p.achievement*100;
+    const tag=a>=100?'tag-green':a>=80?'tag-yellow':'tag-red';
+    const label=a>=100?'On Target':a>=80?'Near':'Below';
+    return [p.name,fmt(p.target),fmtPd(p.cr),fmt(p.avgSale),fmtN(p.meetingsNeeded),fmt(p.actual),
+      `<span class="tag ${tag}">${a.toFixed(1)}% ${label}</span>`];
+  });
+  el('sales-table').outerHTML = makeTable(['Person','Target','CR%','Avg Sale','Mtgs/mo','Actual','Status'],sRows,'Fill Sales Team sheet to see data here.');
+
+  // Funnel
+  if(funnel.length){
+    const maxV=funnel[0].plan||funnel[0].actual||1;
+    el('funnel-chart').innerHTML=funnel.map(f=>{
+      const pct=Math.min(100,((f.actual||f.plan)/maxV)*100);
+      const colors=['var(--accent)','var(--green)','var(--accent2)','var(--yellow)','var(--red)'];
+      const idx=funnel.indexOf(f);
+      return `<div class="funnel-stage">
+        <div class="funnel-label">
+          <span style="color:var(--text);font-weight:600;font-size:12px">${f.stage}</span>
+          <span style="color:var(--muted);font-size:11px">Plan: ${fmtN(f.plan)} | Actual: ${fmtN(f.actual)} | CR: ${f.cr?fmtPd(f.cr):''}</span>
+        </div>
+        <div class="funnel-bar"><div class="funnel-fill" style="width:${pct}%;background:${colors[idx%5]}">${fmtN(f.actual)}</div></div>
+      </div>`;
+    }).join('');
+  } else {
+    el('funnel-chart').innerHTML='<div class="empty"><div class="empty-icon">🔽</div><p>Fill in the Sales Funnel sheet.</p></div>';
+  }
+}
+
+function renderMeCA(meca){
+  if(!meca.rows.length){ el('meca-table').outerHTML='<div id="meca-table" class="empty"><div class="empty-icon">🤝</div><p>Fill in the MeCA sheet.</p></div>'; return; }
+  const trs=meca.rows.map(r=>`<tr>${r.map(c=>`<td>${c||'—'}</td>`).join('')}</tr>`).join('');
+  const ths=meca.headers.map(h=>`<th>${h}</th>`).join('');
+  el('meca-table').outerHTML=`<table id="meca-table"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
+}
+
+function renderBudgeting(budget){
+  if(!budget.length){ el('budget-bars').innerHTML='<div class="empty"><div class="empty-icon">📋</div><p>Fill in the Budgeting sheet.</p></div>'; return; }
+  const totalB=budget.reduce((a,b)=>a+b.benchmark,0);
+  const totalA=budget.reduce((a,b)=>a+(b.actuals[0]||0),0);
+  const diff=totalB>0?((totalA-totalB)/totalB*100):0;
+  el('budget-kpis').innerHTML=
+    kpiCard('Total Benchmark',fmt(totalB),'Monthly target','var(--accent)','📊')+
+    kpiCard('Total Actual',fmt(totalA),'This month','var(--accent2)','💸')+
+    kpiCard('Variance',diff.toFixed(1)+'%',diff>0?'Over budget':'Under budget',diff>0?'var(--red)':'var(--green)','📉')+
+    kpiCard('Categories',budget.length+' items','Fixed costs tracked','var(--yellow)','📋');
+  const colors=['var(--accent)','var(--green)','var(--accent2)','var(--yellow)','var(--red)','#ff9f43','#a29bfe','#fd79a8','#55efc4'];
+  el('budget-bars').innerHTML=budget.map((b,i)=>barRow(b.item,b.actuals[0]||0,b.benchmark,colors[i%colors.length])).join('');
+}
+
+function renderReceivables(recv, crm){
+  const total=recv.reduce((a,r)=>a+r.amount,0);
+  const lt30=recv.find(r=>r.bucket.includes('30')&&!r.bucket.includes('60'))?.amount||0;
+  const gt90=recv.find(r=>r.bucket.includes('90'))?.amount||0;
+  el('recv-kpis').innerHTML=
+    kpiCard('Total Receivables',fmt(total),'All buckets','var(--accent)','🏦')+
+    kpiCard('< 30 Days',fmt(lt30),'Healthy','var(--green)','✅')+
+    kpiCard('> 90 Days',fmt(gt90),'High risk','var(--red)','⚠')+
+    kpiCard('Accounts',recv.reduce((a,r)=>a+r.accounts,0)+' total','','var(--accent2)','👤');
+
+  const colors_r=['var(--green)','var(--yellow)','#ff9f43','var(--red)','var(--muted)'];
+  el('recv-bars').innerHTML = recv.map((r,i)=>`
+    <div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;font-size:12px">
+        <span style="color:${colors_r[i]};font-weight:600">${r.bucket}</span>
+        <span style="color:var(--muted)">${fmt(r.amount)} · ${r.accounts} accts</span>
+      </div>
+      <div class="bar-wrap"><div class="bar-fill" style="width:${total>0?(r.amount/total*100):0}%;background:${colors_r[i]}"></div></div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">${r.action}</div>
+    </div>`).join('');
+
+  const crmRows = crm.filter(c=>c.bill).map(c=>{
+    const delayed=num(c.delayed);
+    const tag=!c.delayed?'tag-blue':delayed<=0?'tag-green':delayed<=3?'tag-yellow':'tag-red';
+    const dlabel=!c.delayed?'—':delayed<=0?'On Time':delayed+' days late';
+    return [c.bill,c.client,c.contact,c.promised,c.actual,
+      `<span class="tag ${tag}">${dlabel}</span>`,c.status||'—'];
+  });
+  const crmHtml = makeTable(['Bill','Client','Contact','Promised','Actual','Delivery','Payment'],crmRows,'Fill the CRM Tracker sheet.');
+  el('crm-table').outerHTML = crmHtml.replace('<table','<table id="crm-table"');
+}
+
+function renderOperations(otd, inv){
+  const onTimeCount=otd.items.filter(i=>i.onTime==='Y').length;
+  const totalCount=otd.items.filter(i=>i.onTime).length;
+  const onTimePct=totalCount>0?(onTimeCount/totalCount*100):0;
+  const invLow=inv.filter(i=>i.status&&i.status.includes('REORDER')).length;
+  el('ops-kpis').innerHTML=
+    kpiCard('On-Time Deliveries',onTimeCount+'/'+totalCount,'Orders','var(--green)','🚚')+
+    kpiCard('On-Time %',onTimePct.toFixed(1)+'%','This period',onTimePct>=90?'var(--green)':onTimePct>=70?'var(--yellow)':'var(--red)','📦')+
+    kpiCard('Inventory Items',inv.length+' tracked','Total items','var(--accent)','📦')+
+    kpiCard('Reorder Alerts',invLow+' items','Need restocking',invLow>0?'var(--red)':'var(--green)','🔴');
+
+  const otdRows=otd.items.filter(i=>i.bill).map(i=>{
+    const tag=i.onTime==='Y'?'tag-green':'tag-red';
+    return [i.bill,i.client,i.promised,i.actual,i.delayed||'—',`<span class="tag ${tag}">${i.onTime==='Y'?'✅ On Time':'❌ Late'}</span>`];
+  });
+  const otdHtml=makeTable(['Bill','Client','Promised','Actual','Days Delay','Status'],otdRows,'Fill the On-Time Delivery sheet.');
+  el('otd-table').outerHTML=otdHtml.replace('<table','<table id="otd-table"');
+
+  const invRows=inv.filter(i=>i.code||i.desc).map(i=>[
+    i.code,i.desc,i.season,fmtN(i.current),i.maxLevel||'—',i.status||'—'
+  ]);
+  const invHtml=makeTable(['Code','Description','Season','Current Stock','Max Level','Status'],invRows,'Fill the Inventory sheet.');
+  el('inv-table').outerHTML=invHtml.replace('<table','<table id="inv-table"');
+}
+
+function renderGrowth(gap, comp, crit){
+  const currentNP=gap.current['Net Profit (₹)']||0;
+  const targetRev=gap.targets['STEP 4: New Revenue']||0;
+  el('growth-kpis').innerHTML=
+    kpiCard('Current Net Profit',fmt(currentNP),'This month','var(--yellow)','💰')+
+    kpiCard('Target Revenue',fmt(targetRev),'To double NP','var(--accent)','🎯')+
+    kpiCard('Compounding Rev',fmt(comp.reduce((a,c)=>a+c.rev,0)),'12-month total','var(--green)','📈');
+
+  // Gap panel
+  const gapSteps=[
+    ['Current Net Profit',gap.current['Net Profit (₹)']||0,'var(--muted)'],
+    ['Step 1: Double NP',gap.targets['STEP 1: Double NP']||0,'var(--yellow)'],
+    ['Step 2: New Fixed Cost',gap.targets['STEP 2: +10% FC']||0,'var(--accent2)'],
+    ['Step 3: New GP Needed',gap.targets['STEP 3: New GP']||0,'var(--accent)'],
+    ['Step 4: New Revenue Target',gap.targets['STEP 4: New Revenue']||0,'var(--green)'],
+  ];
+  el('gap-panel').innerHTML=gapSteps.map(([l,v,c])=>`
+    <div style="display:flex;justify-content:space-between;padding:10px 12px;margin-bottom:6px;background:var(--panel);border-radius:8px;border-left:3px solid ${c}">
+      <span style="color:var(--muted);font-size:13px">${l}</span>
+      <span style="color:${c};font-weight:700;font-size:14px;font-family:var(--mono)">${fmt(v)}</span>
+    </div>`).join('');
+
+  // Compounding table
+  const compRows=comp.map(c=>[c.month,fmtN(c.leads),c.cr||'—',fmtN(c.clients),fmt(c.avgSale),fmt(c.rev),fmt(c.profit)]);
+  const compHtml=makeTable(['Month','Leads','CR%','Clients','Avg Sale','Revenue','Profit'],compRows,'Fill the Compounding sheet.');
+  el('comp-table').outerHTML=compHtml.replace('<table','<table id="comp-table"');
+
+  // Critical params
+  const critRows=crit.filter(c=>c.param).map(c=>{
+    const h=c.health||'';
+    return [c.num,c.param,fmt(c.past),fmt(c.next),
+      `<span style="color:${c.change>=0?'var(--green)':'var(--red)'};">${c.change>=0?'▲':'▼'} ${(Math.abs(c.change)*100).toFixed(1)}%</span>`,
+      h];
+  });
+  const critHtml=makeTable(['#','Parameter','Past Year','Target','Change','Health'],critRows,'Fill the Critical Params sheet.');
+  el('crit-table').outerHTML=critHtml.replace('<table','<table id="crit-table"');
+}
+
+function renderTasks(tasks, deleg){
+  const listCard=(title,items,color)=>{
+    const rows=items.map(t=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="width:18px;height:18px;border-radius:4px;border:2px solid ${t.done?color:'var(--border2)'};background:${t.done?color+'22':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:11px">${t.done?'✓':''}</div>
+        <span style="font-size:13px;color:${t.done?'var(--muted)':'var(--text)'}${t.done?';text-decoration:line-through':''}">${t.task}</span>
+      </div>`).join('');
+    return `<div class="card">
+      <div class="card-accent" style="background:${color}"></div>
+      <div style="color:var(--muted);font-size:11px;font-weight:600;letter-spacing:1px;margin-bottom:14px">${title}</div>
+      ${rows||'<div class="empty"><div class="empty-icon">📋</div><p>Fill the To-Do Lists sheet.</p></div>'}
+    </div>`;
+  };
+  el('tasks-cols').innerHTML=
+    listCard('DAILY TO-DO LIST',tasks.daily,'var(--accent)')+
+    listCard('WEEKLY TO-DO LIST',tasks.weekly,'var(--green)')+
+    listCard('MONTHLY TO-DO LIST',tasks.monthly,'var(--accent2)');
+
+  const dRows=deleg.filter(d=>d.person||d.dept).map(d=>[d.dept,d.person,d.task,d.w1due,
+    d.w1status?`<span class="tag ${d.w1status.includes('✅')?'tag-green':d.w1status.includes('⚠')?'tag-yellow':'tag-red'}">${d.w1status}</span>`:d.w1status||'—',
+    d.w1score||'—',d.w2due||'—',d.w2status||'—']);
+  const dHtml=makeTable(['Dept','Person','Task','W1 Due','W1 Status','W1 Score','W2 Due','W2 Status'],dRows,'Fill the Delegation sheet.');
+  el('deleg-table').outerHTML=dHtml.replace('<table','<table id="deleg-table"');
+}
+
+// ═══════════════════════════════════════════════
+// MAIN LOAD
+// ═══════════════════════════════════════════════
+function safeLoad(fn, batchData, fallback){
+  try { return fn(batchData); }
+  catch(e){ console.warn('Load error in', fn.name, e); return fallback; }
+}
+
+function renderAll(batchData){
+  const fin    = safeLoad(loadFinancial,   batchData, {rev:[],tvc:[],fc:[],gp:[],np:[],totalRev:0,totalGP:0,totalNP:0,totalFC:0,totalBEP:0});
+  const sales  = safeLoad(loadSales,       batchData, {persons:[],totalTarget:0,totalActual:0});
+  const funnel = safeLoad(loadFunnel,      batchData, []);
+  const meca   = safeLoad(loadMeCA,        batchData, {headers:[],rows:[]});
+  const budget = safeLoad(loadBudgeting,   batchData, []);
+  const recv   = safeLoad(loadReceivables, batchData, []);
+  const crm    = safeLoad(loadCRM,         batchData, []);
+  const otd    = safeLoad(loadOTD,         batchData, {items:[],summary:{}});
+  const inv    = safeLoad(loadInventory,   batchData, []);
+  const gap    = safeLoad(loadGap,         batchData, {current:{},targets:{}});
+  const comp   = safeLoad(loadCompounding, batchData, []);
+  const crit   = safeLoad(loadCritical,    batchData, []);
+  const vision = safeLoad(loadVision,      batchData, []);
+  const tasks  = safeLoad(loadTasks,       batchData, {daily:[],weekly:[],monthly:[]});
+  const deleg  = safeLoad(loadDelegation,  batchData, []);
+
+  const renders = [
+    ()=>renderOverview(fin, sales, recv, otd),
+    ()=>renderVision(vision),
+    ()=>renderFinancial(fin),
+    ()=>renderSales(sales, funnel),
+    ()=>renderMeCA(meca),
+    ()=>renderBudgeting(budget),
+    ()=>renderReceivables(recv, crm),
+    ()=>renderOperations(otd, inv),
+    ()=>renderGrowth(gap, comp, crit),
+    ()=>renderTasks(tasks, deleg),
+  ];
+  renders.forEach(fn => {
+    try { fn(); } catch(e){ console.warn('Render error:', fn.toString().slice(0,40), e); }
+  });
+
+  el('loading').classList.add('hidden');
+}
+
+async function loadAllData(forceRefresh=false){
+  setStatus('loading','Loading...');
+  el('error-banner').style.display='none';
+
+  // Try cache first (instant load)
+  if(!forceRefresh){
+    const cached = loadCache();
+    if(cached){
+      renderAll(cached);
+      el('sync-time').textContent='Cached · '+new Date().toLocaleTimeString();
+      setStatus('live','Live (cached)');
+      el('loading').classList.add('hidden');
+      // Refresh in background silently
+      fetchAllSheets().then(batchData=>{
+        saveCache(batchData);
+        renderAll(batchData);
+        el('sync-time').textContent='Synced · '+new Date().toLocaleTimeString();
+        setStatus('live','Live');
+      }).catch(()=>{});
+      return;
+    }
+  }
+
+  // No cache — fetch live
+  try {
+    const batchData = await fetchAllSheets();
+    saveCache(batchData);
+    renderAll(batchData);
+    el('sync-time').textContent='Synced · '+new Date().toLocaleTimeString();
+    setStatus('live','Live');
+    el('loading').classList.add('hidden');
+  } catch(e) {
+    console.error(e);
+    showError(e.message);
+    el('loading').classList.add('hidden');
+  }
+}
+
+window.addEventListener('load', () => {
+  // Safety net: force spinner away after 10s no matter what
+  setTimeout(() => {
+    el('loading').classList.add('hidden');
+  }, 10000);
+  loadAllData();
+});
+</script>
+</body>
+</html>
