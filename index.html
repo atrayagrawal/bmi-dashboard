@@ -479,7 +479,7 @@ function loadFinancial(batchData){
   const rows = getRange(batchData, 'Financial Summary!A2:O14');
   if(!rows.length) return {};
   const map={};
-  rows.slice(1).forEach(r=>{ if(r[0]) map[r[0]]=r.slice(1); });
+  rows.slice(1).forEach(r=>{ if(r[0]) map[r[0]]=r.slice(1,13); });
   const rev  = (map['Revenue (₹)']||[]).map(num);
   const tvc  = (map['Total Variable Cost (₹)']||[]).map(num);
   const fc   = (map['Fixed Cost (₹)']||[]).map(num);
