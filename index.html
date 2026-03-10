@@ -686,7 +686,7 @@ function renderFinancial(fin){
     kpiCard('Net Profit',fmt(fin.totalNP),npPct.toFixed(1)+'% margin','var(--yellow)','💰')+
     kpiCard('Fixed Cost',fmt(fin.totalFC),'Annual total','var(--accent2)','📋');
 
-  const hdrs = ['Metric',...MONTHS,'FY Total'];
+  const hdrs = ['Metric',...MONTHS];
   const dataRows = [
     ['Revenue',...fin.rev.map(fmt),fmt(fin.totalRev)],
     ['TVC',...fin.tvc.map(fmt),''],
